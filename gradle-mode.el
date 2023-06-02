@@ -72,9 +72,10 @@ is a convention for multi-build projects, where dirname is under some
 'rootDir/dirname/dirname.gradle'."
   (let ((dirname (file-name-nondirectory
 		  (directory-file-name (expand-file-name dir)))))
-    (or (file-exists-p (expand-file-name "build.gradle" dir))
+    (or (not (null (file-expand-wildcards
+                    (concat dir "/build.gradle*"))))
 	(file-exists-p (expand-file-name
-			(concat dirname ".gradle") dir)))))
+                        (concat dirname ".gradle") dir)))))
 
 (defun gradle-is-gradlew-dir (dir)
   "Does this DIR contain a gradlew executable file."
@@ -93,67 +94,79 @@ If there is a folder you care to run from higher than this level, you need to mo
 	  (delete-windows-on (get-buffer "*compilation*"))
 	  (kill-buffer "*compilation*")))))
 
-(defun gradle-run (gradle-tasks)
-  "Run gradle command with `GRADLE-TASKS' and options supplied."
+(defun gradle-run-task (gradle-task)
+  "Run gradle command with `GRADLE-TASK' and options supplied."
   (gradle-kill-compilation-buffer)
   (let ((default-directory
 	  (gradle-run-from-dir (if gradle-use-gradlew
 				   'gradle-is-gradlew-dir
 				 'gradle-is-project-dir))))
-    (compile (gradle-make-command gradle-tasks))))
+    (compile (gradle-make-command gradle-task))))
 
-(defun gradle-make-command (gradle-tasks)
-  "Make the gradle command, using some executable path and GRADLE-TASKS."
+(defun gradle-make-command (gradle-task)
+  "Make the gradle command, using some executable path and GRADLE-TASK."
   (let ((gradle-executable (if gradle-use-gradlew
 			       gradle-gradlew-executable
 			     gradle-executable-path)))
-    (s-join " " (list gradle-executable gradle-tasks))))
+    (s-join " " (list gradle-executable gradle-task))
+
+    ))
 
 ;;; --------------------------
 ;; gradle-mode interactive functions
 ;;; --------------------------
 
-(defun gradle-execute (tasks)
-  "Execute gradle command with TASKS supplied by user input."
-  (interactive "sType tasks to run: ")
-  (gradle-run tasks))
+(defun gradle-execute (task)
+  "Execute gradle command with TASK supplied by user input."
+  (interactive "sType task to run: ")
+  (gradle-run-task task))
 
 (defun gradle-build ()
   "Execute gradle build command."
   (interactive)
-  (gradle-run "build"))
+  (gradle-run-task "build"))
 
 (defun gradle-test ()
   "Execute gradle test command."
   (interactive)
-  (gradle-run "test"))
+  (gradle-run-task "test"))
+
+(defun gradle-run ()
+  "Execute gradle run command."
+  (interactive)
+  (gradle-run-task "run"))
+
+(defun gradle-check ()
+  "Execute gradle check command."
+  (interactive)
+  (gradle-run-task "check"))
 
 (defun gradle-single-test (single-test-name)
   "Execute gradle test on file SINGLE-TEST-NAME supplied by user."
   (interactive "sType single test to run: ")
-  (gradle-run
+  (gradle-run-task
    (s-concat "test -Dtest.single=" single-test-name)))
 
-(defun gradle-execute--daemon (tasks)
-  "Execute gradle command, using daemon, with TASKS supplied by user input."
-  (interactive "sType tasks to run: ")
-  (gradle-run
-   (s-concat tasks " --daemon")))
+(defun gradle-execute--daemon (task)
+  "Execute gradle command, using daemon, with TASK supplied by user input."
+  (interactive "sType task to run: ")
+  (gradle-run-task
+   (s-concat task " --daemon")))
 
 (defun gradle-build--daemon ()
   "Execute gradle build command, using daemon."
   (interactive)
-  (gradle-run "build --daemon"))
+  (gradle-run-task "build --daemon"))
 
 (defun gradle-test--daemon ()
   "Execute gradle test command, using daemon."
   (interactive)
-  (gradle-run "test --daemon"))
+  (gradle-run-task "test --daemon"))
 
 (defun gradle-single-test--daemon (single-test-name)
   "Execute gradle test, using daemon, on file SINGLE-TEST-NAME supplied by user."
   (interactive "sType single test to run: ")
-  (gradle-run
+  (gradle-run-task
    (s-concat "test -Dtest.single=" single-test-name " --daemon")))
 
 ;;; ----------
@@ -165,11 +178,13 @@ If there is a folder you care to run from higher than this level, you need to mo
     (define-key map (kbd "C-c C-g b") 'gradle-build)
     (define-key map (kbd "C-c C-g t") 'gradle-test)
     (define-key map (kbd "C-c C-g s") 'gradle-single-test)
+    (define-key map (kbd "C-c C-g r") 'gradle-run)
+    (define-key map (kbd "C-c C-g c") 'gradle-check)
+    (define-key map (kbd "C-c C-g e") 'gradle-execute)
+    (define-key map (kbd "C-c C-g C-d e") 'gradle-execute--daemon)
     (define-key map (kbd "C-c C-g C-d b") 'gradle-build--daemon)
     (define-key map (kbd "C-c C-g C-d t") 'gradle-test--daemon)
     (define-key map (kbd "C-c C-g C-d s") 'gradle-single-test--daemon)
-    (define-key map (kbd "C-c C-g d") 'gradle-execute--daemon)
-    (define-key map (kbd "C-c C-g r") 'gradle-execute)
     map)
   "Keymap for the gradle minor mode.")
 
